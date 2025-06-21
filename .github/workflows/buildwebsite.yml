@@ -99,7 +99,7 @@ jobs:
               object-fit: contain;
               background: white;
               padding: 10px;
-}
+            }
             .card-body {
               padding: 10px;
             }
