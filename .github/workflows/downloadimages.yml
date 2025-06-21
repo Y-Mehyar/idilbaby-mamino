@@ -1,0 +1,57 @@
+name: Download and Commit Images
+
+on:
+  workflow_dispatch:  # manual trigger only
+
+jobs:
+  download_images:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: true  # allows push using GITHUB_TOKEN
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: pip install pandas requests
+
+    - name: Download product images
+      run: |
+        python << 'EOF'
+        import pandas as pd, os, requests
+        from urllib.parse import urlparse
+
+        os.makedirs("docs/images", exist_ok=True)
+        df = pd.read_csv("products.csv")
+
+        for idx, row in df.iterrows():
+            sku = str(row.get("sku", f"IMG{idx}"))
+            urls = str(row.get("image_urls", "")).split(",")
+            for i, url in enumerate(urls):
+                url = url.strip()
+                if not url: continue
+                filename = f"{sku}_{i+1}.jpg"
+                path = f"docs/images/{filename}"
+                try:
+                    r = requests.get(url, timeout=15)
+                    r.raise_for_status()
+                    with open(path, "wb") as f:
+                        f.write(r.content)
+                    print(f"✅ Saved: {filename}")
+                except Exception as e:
+                    print(f"❌ Error with {url}: {e}")
+        EOF
+
+    - name: Commit images to repository
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add docs/images
+        git commit -m "Add downloaded images" || echo "No changes to commit"
+        git push
